@@ -1,6 +1,8 @@
 # WallpaperSwicher
 一个从指定文件夹中获得壁纸并自动定时切换的小工具，使用C++和Windows API编写，有一个简洁（粗制滥造）的窗口。
 
+如果你也有兴趣的话欢迎联系我一起开发（发个issue告知就好）。
+
 # 概况
 
 开发语言：C++
@@ -16,15 +18,15 @@ IDE：Microsoft Visual Studio 2019
 使用Microsoft Visual Studio 2019（2017应该问题也不大，更低的版本就不清楚了）打开项目根目录的"WallpaperSwitcher.sln"进行修改编译；
 或[直接下载](https://github.com/ADD-SP/WallpaperSwitcher/releases)
 
-> ALT + F1 立即切换到下一张壁纸
+> ALT + ~ 立即切换到下一张壁纸
 
-> ALT + F2 隐藏软件界面显示软件界面
+> ALT + 2 隐藏软件界面
 
-> ALT + F3 隐藏软件界面
+> ALT + 1 显示软件界面
 
-> ALT + F4 关闭软件
+> ALT + F1 关闭软件
 
-**P S：目前还没有增加自启动功能，如果需要可以自行将软件拷贝到“C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp”目录下。**
+**P S：目前还没有增加自启动功能，如果需要可以自行将软件的快捷方式拷贝到“C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp”目录下，而软件本身则可以放置到任意位置**
 
 # 目录结构
 直接用Microsoft Visual Studio 2019（2017应该问题也不大，更低的版本就不清楚了）打开就好，不需要目录结构说明
@@ -46,4 +48,9 @@ IDE：Microsoft Visual Studio 2019
 9. 用JS写这种东西太痛苦了，而且还需要修改Wallpaper Engine上的作品的不少地方的代码，容易出问题；。
 9. 干脆自己写一个。
 10. 顺带搞一下自己大一就想搞得Windows API，来一次Windows API编程。
+
+# 更新日志
+
+## 2019/11/17
++ 修复了重启后配置丢失BUG，更改了快捷键，在不是第一次打开的时候自动隐藏窗口；
 

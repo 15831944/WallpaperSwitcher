@@ -21,7 +21,7 @@
 #define HOT_KEY_SHOW 3
 #define HOT_KEY_DESTORY 4
 #define GUIDE L"请将壁纸所在文件夹拖拽到此处（目录下不能有任何非壁纸文件）"
-#define ABOUT L"Wallpaper Switcher是一款开源的壁纸切换工具\n项目主页：https://github.com/ADD-SP/WallpaperSwicher\nALT + F1：立即切换壁纸\nALT + F2：显示主界面\nALT + F3：隐藏主界面\nALT + F4：关闭软件"
+#define ABOUT L"Wallpaper Switcher是一款开源的壁纸切换工具\n项目主页：https://github.com/ADD-SP/WallpaperSwicher \nALT + ~：立即切换壁纸\nALT + 1：显示主界面\nALT + 2：隐藏主界面\nALT + F1：关闭软件"
 #define CONFIG_FILE (L"config.ini")
 
 using std::unordered_set;
@@ -56,7 +56,8 @@ void				SetWallpaperFolder(HWND hWnd);
 void				fillWallpaperSet(HWND hWnd);
 void				HotKeyProc(WPARAM wParam);
 void				fillThrowedWallpaperSet(HWND hWnd);
-void				initConfigFile();
+void				InitConfigFile();
+void				SaveConfigFile();
 void				SetSwichTime();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -83,7 +84,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_PROJECT3));
 
 	srand(time(0));
-	initConfigFile();
+	InitConfigFile();
 
     MSG msg;
     // 主消息循环:
@@ -193,19 +194,19 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	   // CW_USEDEFAULT, 0, 700, 300, nullptr, nullptr, hInstance, nullptr);
 
 
-   // 注册快捷键 ALT + F1，功能为立即切换壁纸
-   RegisterHotKey(g_hWnd, HOT_KEY_SWITCH_WALLPAPER, MOD_ALT, VK_F1);
+   // 注册快捷键 ALT + ~，功能为立即切换壁纸
+   RegisterHotKey(g_hWnd, HOT_KEY_SWITCH_WALLPAPER, MOD_ALT, VK_OEM_3);
    
    // RegisterHotKey(hWnd, HOT_KEY_THROW_WALLPAPER, MOD_CONTROL, 0x44);
   
-   // 注册快捷键 ALT + F3，功能为隐藏软件界面
-   RegisterHotKey(g_hWnd, HOT_KEY_HIDE, MOD_ALT, VK_F3);
+   // 注册快捷键 ALT + 2，功能为隐藏界面
+   RegisterHotKey(g_hWnd, HOT_KEY_HIDE, MOD_ALT, 0x32);
 
-   // 注册快捷键 ALT + F2，功能为显示软件界面
-   RegisterHotKey(g_hWnd, HOT_KEY_SHOW, MOD_ALT, VK_F2);
+   // 注册快捷键 ALT + 1，功能为显示软件界面
+   RegisterHotKey(g_hWnd, HOT_KEY_SHOW, MOD_ALT, 0x31);
 
-   // 注册快捷键 ALT + F4，功能为关闭软件
-   RegisterHotKey(g_hWnd, HOT_KEY_DESTORY, MOD_ALT, VK_F4);
+   // 注册快捷键 ALT + F1，功能为关闭软件
+   RegisterHotKey(g_hWnd, HOT_KEY_DESTORY, MOD_ALT, VK_F1);
    
 
    if (!g_hWnd || !g_hFirstEdit || !g_hButton)
@@ -271,6 +272,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			SetWallpaperFolder(hWnd);
 			SetSwichTime();
+			SaveConfigFile();
 			SendMessage(hWnd, WM_TIMER, 0, 0);
 		}
 		break;
@@ -296,21 +298,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_DESTROY:
 	{
-		WCHAR folder[MAX_FILENAME] = { 0 };
-		fclose(g_fpConfit);
-		_tfopen_s(&g_fpConfit, CONFIG_FILE, L"w, ccs=UTF-8");
-		if (g_fpConfit == nullptr)
-		{
-			MessageBox(hWnd, L"保存配置文件失败，请检查运行目录权限或以管理员身份运行。", L"错误！", MB_OK);
-		}
-		else
-		{
-			GetWindowText(g_hFirstEdit, folder, MAX_FILENAME);
-			fwprintf_s(g_fpConfit, L"%s", folder);
-			fwprintf_s(g_fpConfit, L"%s", L"\n");
-			GetWindowText(g_hSecondEdit, folder, MAX_FILENAME);
-			fwprintf_s(g_fpConfit, L"%s", folder);
-		}
+		SaveConfigFile();
 	}
 	PostQuitMessage(0);
 	break;
@@ -365,7 +353,7 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 }
 */
 
-void initConfigFile()
+void InitConfigFile()
 {
 	WCHAR text[MAX_FILENAME] = { 0 };
 	_tfopen_s(&g_fpConfit, CONFIG_FILE, L"r, ccs=UTF-8");
@@ -392,6 +380,28 @@ void initConfigFile()
 		fwscanf_s(g_fpConfit, L"%ws", text, MAX_FILENAME);
 		SetWindowText(g_hSecondEdit, text);
 		SetSwichTime();
+
+		SendMessage(g_hWnd, WM_HOTKEY, HOT_KEY_HIDE, 0);
+	}
+}
+
+void SaveConfigFile()
+{
+	WCHAR folder[MAX_FILENAME] = { 0 };
+	fclose(g_fpConfit);
+	_tfopen_s(&g_fpConfit, CONFIG_FILE, L"w, ccs=UTF-8");
+	if (g_fpConfit == nullptr)
+	{
+		MessageBox(g_hWnd, L"保存配置文件失败，请检查运行目录权限或以管理员身份运行。", L"错误！", MB_OK);
+	}
+	else
+	{
+		GetWindowText(g_hFirstEdit, folder, MAX_FILENAME);
+		fwprintf_s(g_fpConfit, L"%s", folder);
+		fwprintf_s(g_fpConfit, L"%s", L"\n");
+		GetWindowText(g_hSecondEdit, folder, MAX_FILENAME);
+		fwprintf_s(g_fpConfit, L"%s", folder);
+		fclose(g_fpConfit);
 	}
 }
 
