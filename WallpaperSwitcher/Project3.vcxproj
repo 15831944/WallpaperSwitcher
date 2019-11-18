@@ -237,10 +237,10 @@
     <ClCompile Include="Project3.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Project3.rc" />
+    <ResourceCompile Include="WallpaperSwitcher.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="Project3.ico" />
+    <Image Include="WallpaperSwitcher.ico" />
     <Image Include="small.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
