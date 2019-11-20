@@ -8,23 +8,68 @@
 #include <shellapi.h>
 #include <unordered_set>
 #include <vector>
-#include <time.h>
+#include "MyRandom.h"
+#include <winreg.h>
 
 #define MAX_LOADSTRING (100)
+// 最大文件名长度
 #define MAX_FILENAME (260)
-#define BUTTON_ID (2)
+
+// 配置保存按钮标识符
+#define BUTTON_SAVE (2)
+
+// 窗口顶部菜单“设置”菜单下标
+#define SUB_MENU_SET_INDEX (0)
+// 窗口顶部菜单“设置”的子菜单下的“开机自启动”菜单下标
+#define SUB_MENU_SET_STARTUP_INDEX (0)
+// 窗口顶部菜单“设置”的子菜单下的“老板模式”菜单下标
+#define SUB_MENU_SET_BOSS_INDEX (1)
+
+// 窗口顶部菜单“设置”的子菜单下的“开机自启动”菜单标识符，在处理窗口消息的时候用于识别该菜单
+#define MENU_STARTUP (4)
+// 窗口顶部菜单“帮助”的子菜单下的“功能介绍”菜单标识符，在处理窗口消息的时候用于识别该菜单
+#define MENU_EXPLAIN (6)
+// 窗口顶部菜单“帮助”的子菜单下的“项目主页”菜单标识符，在处理窗口消息的时候用于识别该菜单
+#define MENU_OPEN_PROJECT_PAGE (7)
+// 窗口顶部菜单“帮助”的子菜单下的“快捷键介绍”菜单标识符，在处理窗口消息的时候用于识别该菜单
+#define MENU_HOT_KEY_EXPLAIN (8)
+// 窗口顶部菜单“帮助”的子菜单下的“关于”菜单标识符，在处理窗口消息的时候用于识别该菜单
+#define MENU_ABOUT (9)
+// 窗口顶部菜单“帮助”的子菜单下的“关于随机切换壁纸的说明”菜单标识符，在处理窗口消息的时候用于识别该菜单
+#define MENU_ABOUT_SWITCH (10)
+
+
 #define BROADCAST (SPIF_UPDATEINIFILE | SPIF_SENDCHANGE)
-#define WM_INIT_CONFIG WM_USER
-#define DEFAULT_WALLPAPER_PATH L"C:\\Windows\\Web\\Wallpaper\\Windows\\img0.jpg"
 #define NOT_BROADCAST (SPIF_UPDATEINIFILE)
-#define HOT_KEY_SWITCH_WALLPAPER 0
-#define HOT_KEY_THROW_WALLPAPER 1
-#define HOT_KEY_HIDE_OR_SHOW 2
-#define HOT_KEY_DESTORY 3
-#define HOT_KEY_BOSS 4
+
+// 配置文件初始化完成消息
+#define WM_INIT_CONFIG WM_USER
+
+// Windwos默认壁纸路径
+#define DEFAULT_WALLPAPER_PATH L"C:\\Windows\\Web\\Wallpaper\\Windows\\img0.jpg"
+// 配置文件文件名
+#define CONFIG_FILE L"config.ini"
+
+// 热键“立即切换壁纸”的标识符
+#define HOT_KEY_SWITCH_WALLPAPER (0)
+// 热键“丢弃壁纸”的标识符
+#define HOT_KEY_THROW_WALLPAPER (1)
+// 热键“显示/隐藏主界面”的标识符
+#define HOT_KEY_HIDE_OR_SHOW (2)
+// 热键“关闭程序”的标识符
+#define HOT_KEY_DESTORY (3)
+// 热键“老板模式”的标识符
+#define HOT_KEY_BOSS (4)
+
+// 注册表中启动项的名称
+#define KEY_VALUE_NAME_STARTUP L"WallpaperSwitcher"
+
+// 列出了一些消息框的文本
 #define GUIDE L"请将壁纸所在文件夹拖拽到此处（目录下不能有任何非壁纸文件）"
-#define ABOUT L"Wallpaper Switcher是一款开源的壁纸切换工具\n项目主页：https://github.com/ADD-SP/WallpaperSwicher \nALT + ~：立即切换壁纸\nALT + 1：显示/隐藏主界面\nALT + 2：不再使用该壁纸（不删除文件）\nALT + Q：立即切换到默认壁纸并停止壁纸切换/恢复壁纸切换\nALT + F1：关闭软件"
-#define CONFIG_FILE (L"config.ini")
+#define ABOUT L"Wallpaper Switcher是一款开源的壁纸切换工具\n项目主页：https://github.com/ADD-SP/WallpaperSwicher "
+#define EXPLAIN L"老板键：立即切换到默认壁纸并不再切换到其它壁纸，直到退出老板模式。\n丢弃壁纸：不再将当前壁纸作为桌面，但是不会删除磁盘上的文件。"
+#define HOTKEY L"ALT + ~：立即切换壁纸\nALT + 1：显示/隐藏主界面\nALT + 2：丢弃当前壁纸\nALT + Q：开启/关闭老板模式\nALT + F1：关闭软件"
+#define ABOUT_SWITCH L"本软件以“十分随机”的方式进行切换，如果不考虑文件夹内的所有壁纸都已经轮换过一遍的情况，本软件不会再次使用之前已经用过的壁纸。即在一个壁纸切换周期内，所有的壁纸都会出现且仅出现一次。"
 
 using std::unordered_set;
 using std::vector;
@@ -60,23 +105,35 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // 主窗口类名
 WCHAR wallpaperFolder[MAX_FILENAME] = { 0 };
 WCHAR wallpaperFolderRegex[MAX_FILENAME] = { 0 };
 HANDLE g_hFindfile = nullptr;
-FILE* g_fpConfit = nullptr;
-HWND g_hWnd = nullptr;
-HWND g_hFirstEdit = nullptr;
-HWND g_hSecondEdit = nullptr;
-HWND g_hFirstLabel = nullptr;
-HWND g_hSecondLabel = nullptr;
-HWND g_hButton = nullptr;
 
+// 指向配置文件的指针
+FILE* g_fpConfit = nullptr;
+// 主窗体句柄
+HWND g_hWnd = nullptr;
+// 用于显示和设置壁纸文件夹路径的编辑框的句柄
+HWND g_hFirstEdit = nullptr;
+// 用于显示和设置壁纸切换间隔的编辑框的句柄
+HWND g_hSecondEdit = nullptr;
+// 标签“壁纸所在文件夹”的句柄
+HWND g_hFirstLabel = nullptr;
+// 标签“切换间隔（秒）”的句柄
+HWND g_hSecondLabel = nullptr;
+// 按钮句柄
+HWND g_hSaveButton = nullptr;
+// 随机数对象
+MyRandom myRandom;
 // 壁纸切换定时器指针
 UINT_PTR g_switchTimer = 0;
-
 // 记录当前壁纸
 WCHAR g_curWallpaper[MAX_FILENAME] = { 0 };
-
-
+// 记录当前程序的目录
+WCHAR g_curDir[MAX_FILENAME] = { 0 };
+// 存储文件夹中所有的壁纸的文件名
 vector<WCHAR*> g_wallpapers;
+// 存储所有被丢弃的壁纸的文件名
 unordered_set<WCHAR*> g_throwedWallpaper;
+// 记录是否配置成功，即最后一次配置的文件夹路径是否合法
+bool g_isConfigSucess = false;
 
 // 此代码模块中包含的函数的前向声明:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -86,6 +143,9 @@ ATOM				RegisterLabelClass(HINSTANCE hInstance);
 
 // 初始化实例
 BOOL                InitInstance(HINSTANCE, int);
+
+// 初始化所有菜单
+bool				InitAllMenu();
 
 // 窗口消息回调过程
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -123,6 +183,21 @@ void				SetSwichTime();
 // 定时器处理过程
 void				TimerProc(HWND hWnd);
 
+// 
+bool				CommandProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+// 设置自身为开机启动项
+bool				AddStartup();
+
+// 删除自身启动项
+bool				DeleteStartup();
+
+// 检查启动项是否存在
+bool				IsStartup();
+
+// 反转带有复选功能的菜单项的状态并返回反转前的状态
+bool				ReverseCheckMenuState(HMENU hMenu, unsigned int subMenuIndex, const WCHAR* menuText);
+
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
                      _In_ LPWSTR    lpCmdLine,
@@ -146,8 +221,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_PROJECT3));
 
-	srand(time(0));
 	InitConfigFile();
+	InitAllMenu();
 
     MSG msg;
     // 主消息循环:
@@ -250,8 +325,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    
 
    // 创建按钮
-   g_hButton = CreateWindowW(L"BUTTON", L"保存（立即生效）", 
-	   WS_CHILD, 275, 150, 125, 30, g_hWnd, (HMENU)BUTTON_ID, hInstance, nullptr);
+   g_hSaveButton = CreateWindowW(L"BUTTON", L"保存（立即生效）", 
+	   WS_CHILD, 275, 150, 125, 30, g_hWnd, (HMENU)BUTTON_SAVE, hInstance, nullptr);
 
    // HWND hLabel = CreateWindowExW(WS_EX_ACCEPTFILES, L"Label", szTitle, WS_MINIMIZEBOX | WS_VISIBLE | WS_SYSMENU,
 	   // CW_USEDEFAULT, 0, 700, 300, nullptr, nullptr, hInstance, nullptr);
@@ -273,24 +348,55 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    RegisterHotKey(g_hWnd, HOT_KEY_DESTORY, MOD_ALT, VK_F1);
    
 
-   if (!g_hWnd || !g_hFirstEdit || !g_hButton)
+   if (!g_hWnd || !g_hFirstEdit || !g_hSaveButton)
    {
       return FALSE;
    }
    
-   ShowWindow(g_hButton, nCmdShow);
+   ShowWindow(g_hSaveButton, nCmdShow);
    ShowWindow(g_hFirstEdit, nCmdShow);
    ShowWindow(g_hSecondEdit, nCmdShow);
    ShowWindow(g_hFirstLabel, nCmdShow);
    ShowWindow(g_hSecondLabel, nCmdShow);
    ShowWindow(g_hWnd, nCmdShow);
 
-   SendMessage(g_hFirstLabel, WM_PAINT, 0, (LPARAM)(L"壁纸所在文件夹"));
-   SendMessage(g_hSecondLabel, WM_PAINT, 0, (LPARAM)(L"切换间隔（秒）"));
+   //SendMessage(g_hFirstLabel, WM_PAINT, 0, (LPARAM)(L"壁纸所在文件夹"));
+   //SendMessage(g_hSecondLabel, WM_PAINT, 0, (LPARAM)(L"切换间隔（秒）"));
 
    // SetTimer(g_hWnd, NULL, 30000, NULL);
 
    return TRUE;
+}
+
+bool InitAllMenu()
+{
+	HMENU hMenu = GetMenu(g_hWnd);
+	HMENU hMenu1 = CreatePopupMenu();
+
+	InsertMenu(hMenu, 0, MF_BYPOSITION | MF_POPUP, (UINT_PTR)hMenu1, L"设置");
+	RemoveMenu(hMenu, 1, MF_BYPOSITION);
+
+	if (IsStartup())
+	{
+		AppendMenu(hMenu1, MF_STRING | MF_CHECKED, MENU_STARTUP, L"开机自启动");
+	}
+	else
+	{
+		AppendMenu(hMenu1, MF_STRING | MF_UNCHECKED, MENU_STARTUP, L"开机自启动");
+	}
+
+
+	HMENU hHelpMenu = GetSubMenu(hMenu, 1);
+	RemoveMenu(hHelpMenu, 0, MF_BYPOSITION);
+	AppendMenu(hHelpMenu, MF_STRING, MENU_OPEN_PROJECT_PAGE, L"项目主页");
+	AppendMenu(hHelpMenu, MF_STRING, MENU_EXPLAIN, L"功能介绍");
+	AppendMenu(hHelpMenu, MF_STRING, MENU_HOT_KEY_EXPLAIN, L"快捷键说明");
+	AppendMenu(hHelpMenu, MF_STRING, MENU_ABOUT_SWITCH, L"关于随机切换壁纸的说明");
+	AppendMenu(hHelpMenu, MF_STRING, MENU_ABOUT, L"关于");
+	/*InsertMenu(hHelpMenu, 0, MF_BYPOSITION, MENU_EXPLAIN, L"功能介绍");
+	InsertMenu(hHelpMenu, 1, MF_BYPOSITION, MENU_OPEN_PROJECT_PAGE, L"项目主页");*/
+	DrawMenuBar(g_hWnd);
+	return true;
 }
 
 //
@@ -337,34 +443,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		// 命令消息（包含菜单消息、按钮消息和拖拽消息）
 	case WM_COMMAND:
 	{
-		int wmId = LOWORD(wParam);
-		int wmEvent = HIWORD(wParam);
-		// 处理菜单消息，拖拽消息和按钮消息
-		switch (wmId)
+		if (!CommandProc(hWnd, message, wParam, lParam))
 		{
-			// 处理“关于”消息
-		case IDM_ABOUT:
-			MessageBox(hWnd, ABOUT, L"关于", MB_OK);
-			break;
-		case IDM_EXIT:
-			DestroyWindow(hWnd);
-			break;
-			// 处理“保存”按钮消息
-		case BUTTON_ID:
-		{
-			// 设置壁纸文件夹
-			SetWallpaperFolder(hWnd);
-			// 将所有壁纸调入内存
-			FillWallpaperSet(hWnd);
-			// 设置壁纸切换间隔
-			SetSwichTime();
-			// 存储当前配置
-			SaveConfigFile(false);
-			// 发送定时器消息，用于立即切换壁纸
-			SendMessage(hWnd, WM_TIMER, 0, 0);
-		}
-		break;
-		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
 	}
@@ -410,6 +490,7 @@ LRESULT CALLBACK LabelProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam
 		// 如果本次重绘包含标签的文本
 		if (lParam != 0)
 		{
+			// 重绘标签，否则在窗体最小化或隐藏后再次显示主窗体标签将会消失
 			PAINTSTRUCT ps;
 			WCHAR* pText = (WCHAR*)lParam;
 			HDC hdc = BeginPaint(hWnd, &ps);
@@ -417,6 +498,10 @@ LRESULT CALLBACK LabelProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam
 			TextOut(hdc, 0, 0, pText, lstrlenW(pText));
 			EndPaint(hWnd, &ps);
 			UpdateWindow(hWnd);
+		}
+		else
+		{
+			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
 	}
 	break;
@@ -451,15 +536,31 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 void InitConfigFile()
 {
 	WCHAR text[MAX_FILENAME] = { 0 };
+	// 取自身路径，如果使用GetCurrentDirectory()会在开机启动时错误地获取路径，
+	// 因为开机自启的程序的运行目录会被设置到特定文件夹导致读取配置文件失败
+	GetModuleFileName(0, g_curDir, 260);
+
+	WCHAR* pCurDir = g_curDir;
+
+	for (int i = lstrlen(g_curDir) - 1; i >= 0; i--)
+	{
+		if (g_curDir[i] == '\\')
+		{
+			pCurDir = (&(g_curDir[i])) + 1;
+			break;
+		}
+	}
+
+	lstrcpy(pCurDir, CONFIG_FILE);
 
 	// 以Unicode编码打开配置文件
-	_tfopen_s(&g_fpConfit, CONFIG_FILE, L"r, ccs=UNICODE");
+	_tfopen_s(&g_fpConfit, g_curDir, L"r, ccs=UNICODE");
 
 	// 如果配置文件不存在
 	if (g_fpConfit == nullptr)
 	{
 		// 以Unicode编码创建配置文件
-		_tfopen_s(&g_fpConfit, CONFIG_FILE, L"w, ccs=UNICODE");
+		_tfopen_s(&g_fpConfit, g_curDir, L"w, ccs=UNICODE");
 		// 创建失败
 		if (g_fpConfit == nullptr)
 		{
@@ -469,6 +570,20 @@ void InitConfigFile()
 	}
 	else
 	{
+		// 如果文件为空
+		if (feof(g_fpConfit))
+		{
+			fclose(g_fpConfit);
+			_tfopen_s(&g_fpConfit, g_curDir, L"w, ccs=UNICODE");
+			// 创建失败
+			if (g_fpConfit == nullptr)
+			{
+				MessageBox(g_hWnd, L"配置文件创建或打开失败，请检查程序是否拥有运行目录的权限或尝试以管理员身份运行！", L"错误！", MB_OK);
+				exit(-1);
+			}
+			fclose(g_fpConfit);
+			return;
+		}
 		while (!feof(g_fpConfit))
 		{
 			// 读取一行
@@ -493,6 +608,20 @@ void InitConfigFile()
 				FillThrowedWallpaperSet(g_fpConfit);
 				break;
 			}
+			else
+			{	
+				// 如果在配置文件中读取到非法内容
+				fclose(g_fpConfit);
+				_tfopen_s(&g_fpConfit, g_curDir, L"w, ccs=UNICODE");
+				// 创建失败
+				if (g_fpConfit == nullptr)
+				{
+					MessageBox(g_hWnd, L"配置文件创建或打开失败，请检查程序是否拥有运行目录的权限或尝试以管理员身份运行！", L"错误！", MB_OK);
+					exit(-1);
+				}
+				fclose(g_fpConfit);
+				return;
+			}
 		}
 
 		// 向主窗口发送配置文件读取完成消息，之后主窗口会执行配置初始化
@@ -506,7 +635,7 @@ void SaveConfigFile(bool isSaveThrowedSet)
 	WCHAR text[MAX_FILENAME] = { 0 };
 
 	// 以Unicode编码打开配置文件
-	_tfopen_s(&g_fpConfit, CONFIG_FILE, L"w, ccs=UNICODE");
+	_tfopen_s(&g_fpConfit, g_curDir, L"w, ccs=UNICODE");
 
 	// 如果打开失败
 	if (g_fpConfit == nullptr)
@@ -515,33 +644,37 @@ void SaveConfigFile(bool isSaveThrowedSet)
 	}
 	else
 	{
-		// 存储壁纸文件夹路径
-		fwprintf_s(g_fpConfit, L"%s\n", L"[PATH]");
-		GetWindowText(g_hFirstEdit, text, MAX_FILENAME);
-		fwprintf_s(g_fpConfit, L"%s\n", text);
-
-		// 存储壁纸切换间隔
-		fwprintf_s(g_fpConfit, L"%s\n", L"[TIME]");
-		GetWindowText(g_hSecondEdit, text, MAX_FILENAME);
-		fwprintf_s(g_fpConfit, L"%s\n", text);
-
-		// 存储被丢弃的壁纸
-		fwprintf_s(g_fpConfit, L"%s", L"[THROWED]");
-		if (isSaveThrowedSet)
+		// 如果之前已经配置成功，即壁纸文件夹路径合法
+		if (g_isConfigSucess)
 		{
-			fwprintf_s(g_fpConfit, L"\n");
-			for (auto itor = g_throwedWallpaper.begin(); itor != g_throwedWallpaper.end(); ++itor)
+			// 存储壁纸文件夹路径
+			fwprintf_s(g_fpConfit, L"%s\n", L"[PATH]");
+			GetWindowText(g_hFirstEdit, text, MAX_FILENAME);
+			fwprintf_s(g_fpConfit, L"%s\n", text);
+
+			// 存储壁纸切换间隔
+			fwprintf_s(g_fpConfit, L"%s\n", L"[TIME]");
+			GetWindowText(g_hSecondEdit, text, MAX_FILENAME);
+			fwprintf_s(g_fpConfit, L"%s\n", text);
+
+			// 存储被丢弃的壁纸
+			fwprintf_s(g_fpConfit, L"%s", L"[THROWED]");
+			if (isSaveThrowedSet)
 			{
-				auto temp = itor;
-				
-				// 如果这是最后一项则不输出换行到文件，避免读取错误
-				if (++temp == g_throwedWallpaper.end())
+				fwprintf_s(g_fpConfit, L"\n");
+				for (auto itor = g_throwedWallpaper.begin(); itor != g_throwedWallpaper.end(); ++itor)
 				{
-					fwprintf_s(g_fpConfit, L"%s", *itor);
-				}
-				else
-				{
-					fwprintf_s(g_fpConfit, L"%s\n", *itor);
+					auto temp = itor;
+
+					// 如果这是最后一项则不输出换行到文件，避免读取错误
+					if (++temp == g_throwedWallpaper.end())
+					{
+						fwprintf_s(g_fpConfit, L"%s", *itor);
+					}
+					else
+					{
+						fwprintf_s(g_fpConfit, L"%s\n", *itor);
+					}
 				}
 			}
 		}
@@ -599,7 +732,7 @@ void TimerProc(HWND hWnd)
 	{
 		do
 		{
-			pfilename = g_wallpapers[rand() % g_wallpapers.size()];
+			pfilename = g_wallpapers[myRandom.randNumber()];
 			// 拼接壁纸路径
 			wsprintf(fileName, L"%ws", wallpaperFolder);
 			lstrcat(fileName, pfilename);
@@ -611,6 +744,133 @@ void TimerProc(HWND hWnd)
 		lstrcpy(g_curWallpaper, fileName);
 		// 切换壁纸
 		SwitchWallpaper(hWnd, fileName);
+	}
+}
+
+bool CommandProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	int wmId = LOWORD(wParam);
+	int wmEvent = HIWORD(wParam);
+	// 处理菜单消息，拖拽消息和按钮消息
+	switch (wmId)
+	{
+
+	case MENU_OPEN_PROJECT_PAGE:
+		ShellExecute(NULL, L"open", L"https://github.com/ADD-SP/WallpaperSwitcher", NULL, NULL, SW_SHOWNORMAL);
+		break;
+	case MENU_HOT_KEY_EXPLAIN:
+		MessageBox(hWnd, HOTKEY, L"快捷键介绍", MB_OK);
+		break;
+	case MENU_ABOUT_SWITCH:
+		MessageBox(hWnd, ABOUT_SWITCH, L"关于随机切换壁纸", MB_OK);
+		break;
+	case MENU_ABOUT:
+		MessageBox(hWnd, ABOUT, L"关于", MB_OK);
+		break;
+		// 处理菜单——功能介绍
+	case MENU_EXPLAIN:
+		MessageBox(hWnd, EXPLAIN, L"功能介绍", MB_OK);
+		break;
+		// 处理菜单--开机自启动消息
+	case MENU_STARTUP:
+	{
+		HMENU hMenu = GetMenu(hWnd);
+		HMENU hSetMenu = GetSubMenu(hMenu, SUB_MENU_SET_INDEX);
+		if (ReverseCheckMenuState(hSetMenu, SUB_MENU_SET_STARTUP_INDEX, L"开机自启动"))
+		{
+			DeleteStartup();
+		}
+		else
+		{
+			AddStartup();
+		}
+	}
+	break;
+		// 处理“保存”按钮消息
+	case BUTTON_SAVE:
+	{
+		// 设置壁纸文件夹
+		SetWallpaperFolder(hWnd);
+		// 将所有壁纸调入内存
+		FillWallpaperSet(hWnd);
+		// 设置壁纸切换间隔
+		SetSwichTime();
+		// 存储当前配置
+		SaveConfigFile(false);
+		// 发送定时器消息，用于立即切换壁纸
+		SendMessage(hWnd, WM_TIMER, 0, 0);
+	}
+	break;
+	default:
+		return false;
+		break;
+	}
+	return true;
+}
+
+bool AddStartup()
+{
+	HKEY key;
+	WCHAR subKey[] = { L"Software\\Microsoft\\Windows\\CurrentVersion\\Run" };
+	WCHAR curFilename[MAX_FILENAME] = { L"\"" };
+	GetModuleFileName(nullptr, curFilename + 1, MAX_FILENAME);
+	lstrcat(curFilename, L"\"");
+	RegCreateKey(HKEY_CURRENT_USER, subKey, &key);
+	// MessageBox(g_hWnd, curFilename, L"OK", MB_OK);
+	if (RegSetValueExW(key, KEY_VALUE_NAME_STARTUP, 0, REG_SZ, (BYTE*)curFilename, (lstrlen(curFilename) + 1) * sizeof(WCHAR)) == ERROR_SUCCESS)
+	{
+		return true;
+	}
+	return false;
+}
+
+bool DeleteStartup()
+{
+	HKEY key;
+	WCHAR subKey[] = { L"Software\\Microsoft\\Windows\\CurrentVersion\\Run" };
+	RegCreateKey(HKEY_CURRENT_USER, subKey, &key);
+	if (RegDeleteValue(key, KEY_VALUE_NAME_STARTUP) == ERROR_SUCCESS)
+	{
+		return true;
+	}
+	else
+	{
+		// FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, nullptr, a, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), subKey, MAX_FILENAME, nullptr);
+		return false;
+	}
+}
+
+bool IsStartup()
+{
+	HKEY hKey;
+	WCHAR subKey[] = { L"Software\\Microsoft\\Windows\\CurrentVersion\\Run" };
+	DWORD lpType = REG_SZ;
+	KEY_READ;
+	if (RegOpenKeyEx(HKEY_CURRENT_USER, subKey, NULL, KEY_READ, &hKey) == ERROR_SUCCESS)
+	{
+		LSTATUS result = RegQueryValueEx(hKey, KEY_VALUE_NAME_STARTUP, NULL, &lpType, NULL, NULL);
+		if (result == ERROR_SUCCESS || result == ERROR_MORE_DATA)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool ReverseCheckMenuState(HMENU hMenu, unsigned int subMenuIndex, const WCHAR* menuText)
+{
+	UINT menState = GetMenuState(hMenu, subMenuIndex, MF_BYPOSITION);
+	
+	// 使用位运算测试“MF_CHECKED”标志位是否存在来判断菜单项是否被选中
+	if ((menState | MF_CHECKED) == menState)
+	{
+		ModifyMenu(hMenu, subMenuIndex, MF_BYPOSITION | MF_UNCHECKED, MENU_STARTUP, menuText);
+		return true;
+	}
+	else
+	{
+		ModifyMenu(hMenu, subMenuIndex, MF_BYPOSITION | MF_CHECKED, MENU_STARTUP, menuText);
+		return false;
 	}
 }
 
@@ -643,10 +903,11 @@ void FillWallpaperSet(HWND hWnd)
 	WIN32_FIND_DATA findData;
 	WCHAR* pfilename = nullptr;
 	WCHAR text[MAX_FILENAME] = { 0 };
+	g_isConfigSucess = false;
 	HANDLE hFindfile = FindFirstFile(wallpaperFolderRegex, &findData);
 
 	// 清空原来的壁纸并释放空间
-	for (int i = 0; i < g_wallpapers.size(); i++)
+	for (unsigned int i = 0; i < g_wallpapers.size(); i++)
 	{
 		free(g_wallpapers[i]);
 	}
@@ -666,6 +927,7 @@ void FillWallpaperSet(HWND hWnd)
 				L"壁纸路径错误，可能是如下原因：\n1.所选文件夹不存在.\n2.所选路径不是文件夹。\n3.权限不足，请尝试以管理员权限运行。",
 				L"文件夹打开失败！",
 				MB_OK);
+
 		}
 		// 其它异常
 		else
@@ -674,9 +936,13 @@ void FillWallpaperSet(HWND hWnd)
 			lstrcat(text, L"！请将此消息反馈给作者！\n反馈网址：https://github.com/ADD-SP/WallpaperSwitcher/issues");
 			MessageBox(g_hWnd, text, L"未知错误！", MB_OK);
 		}
+
+		// 恢复编辑框的默认文本
+		SetWindowText(g_hFirstEdit, GUIDE);
 	}
 	else
 	{
+		g_isConfigSucess = true;
 		// 跳过一些奇怪的文件
 		if (lstrcmp(findData.cFileName, L".") && lstrcmp(findData.cFileName, L".."))
 		{
@@ -711,6 +977,8 @@ void FillWallpaperSet(HWND hWnd)
 				}
 			}
 		}
+
+		myRandom.setRange(0, g_wallpapers.size() - 1);
 	}
 }
 
@@ -781,11 +1049,14 @@ void HotKeyProc(WPARAM wParam)
 	break;
 		// 切换壁纸
 	case HOT_KEY_SWITCH_WALLPAPER:
-		// 用于重置定时器
-		SetSwichTime();
-		// 发送定时器消息用于立即切换壁纸
-		SendMessage(g_hWnd, WM_TIMER, 0, 0);
-		break;
+		if (!isBossMode)
+		{
+			// 用于重置定时器
+			SetSwichTime();
+			// 发送定时器消息用于立即切换壁纸
+			SendMessage(g_hWnd, WM_TIMER, 0, 0);
+		}
+	break;
 		// 显示/隐藏主窗口
 	case HOT_KEY_HIDE_OR_SHOW:
 		if (isWindowShow)
