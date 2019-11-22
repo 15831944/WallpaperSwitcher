@@ -105,6 +105,7 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // 主窗口类名
 WCHAR wallpaperFolder[MAX_FILENAME] = { 0 };
 WCHAR wallpaperFolderRegex[MAX_FILENAME] = { 0 };
 HANDLE g_hFindfile = nullptr;
+HANDLE g_hMutex = nullptr;
 
 // 指向配置文件的指针
 FILE* g_fpConfit = nullptr;
@@ -208,6 +209,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     // 初始化全局字符串
     // LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
+
 	lstrcpy(szTitle, L"WallpaperSwitcher");
     LoadStringW(hInstance, IDC_PROJECT3, szWindowClass, MAX_LOADSTRING);
     MyRegisterClass(hInstance);
@@ -218,6 +220,31 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     {
         return FALSE;
     }
+
+	HANDLE hMutex = CreateMutex(NULL, TRUE, L"@__WallpaperSwitcher_Mutex__@");
+
+	if (hMutex == nullptr)
+	{
+		MessageBox(g_hWnd, L"互斥体创建失败，请重试！", L"错误！", MB_OK);
+		return -1;
+	}
+
+	DWORD state = WaitForSingleObject(hMutex, 0);
+
+	if (state == WAIT_TIMEOUT)
+	{
+		MessageBox(g_hWnd, L"请不要重复运行本软件！", L"错误！", MB_OK);
+		CloseHandle(hMutex);
+		return -1;
+	}
+	else if (state == WAIT_FAILED)
+	{
+		MessageBox(g_hWnd, L"获取互斥体失败，请重试！", L"错误！", MB_OK);
+		CloseHandle(hMutex);
+		return -1;
+	}
+
+
 
     HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_PROJECT3));
 
@@ -469,6 +496,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_DESTROY:
 	{
+		CloseHandle(g_hMutex);
 		// 存储配置文件
 		SaveConfigFile(true);
 	}
