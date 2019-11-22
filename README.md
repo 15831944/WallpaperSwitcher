@@ -40,6 +40,14 @@ IDE：Microsoft Visual Studio 2019
 ![](.img/5.png)
 ![](.img/6.png)
 ![](.img/7.png)
+
+## 初始配置演示
+![](.img/8.gif)
+## 自动切换演示
+![](.img/9.gif)
+## 快捷键切换演示
+![](.img/10.gif)
+
 # 瞎扯
 作者一直在用Steam上的Wallpaper Engine，这个软件非常好用，但是也遇到一点问题：
 
