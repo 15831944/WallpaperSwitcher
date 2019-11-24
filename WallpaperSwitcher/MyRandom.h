@@ -1,4 +1,11 @@
 #pragma once
+#ifdef _WIN64
+typedef INT64 _size;
+#else
+typedef INT32 _size;
+#endif
+
+
 #include <time.h>
 #include <random>
 #include <stdexcept>
@@ -25,17 +32,17 @@ private:
 	// 记录是否设置了范围，未设置范围就取随机数会抛异常
 	bool _isSetRange;
 	// 随机数的左右区间，包含边界
-	long long _leftRange, _rightRange;
+	_size _leftRange, _rightRange;
 	// 存储随机打算的数字
-	vector<long long> _nums;
+	vector<_size> _nums;
 	// 洗牌算法
 	void _shuffle();
 public:
 	MyRandom();
-	MyRandom(long long leftRange, long long rightRange);
+	MyRandom(_size leftRange, _size rightRange);
 	// 获取下一个随机数
-	long long randNumber();
+	_size randNumber();
 	// 设置随机数区间，包含边界
-	void setRange(long long leftRange, long long rightRange);
+	void setRange(_size leftRange, _size rightRange);
 };
 
