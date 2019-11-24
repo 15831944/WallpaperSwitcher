@@ -6,12 +6,12 @@ void MyRandom::_shuffle()
 	// 以当前时间置随机数种子
 	default_random_engine generator((unsigned int)time(NULL));
 	// 创建均匀分布的随机数发生器
-	uniform_int_distribution<long long> distribution(0, _nums.size() - 1);
-	long long temp;
-	long long index;
+	uniform_int_distribution<_size> distribution(0, _nums.size() - 1);
+	_size temp;
+	_size index;
 
 	// 洗牌算法
-	for (long long i = _nums.size() - 1; i > 0; i--)
+	for (_size i = _nums.size() - 1; i > 0; i--)
 	{
 		do
 		{
@@ -31,21 +31,21 @@ MyRandom::MyRandom()
 	setRange(0, 1);
 }
 
-MyRandom::MyRandom(long long leftRange, long long rightRange)
+MyRandom::MyRandom(_size leftRange, _size rightRange)
 {
 	_isSetRange = true;
 	setRange(leftRange, rightRange);
 	_shuffle();
 }
 
-long long MyRandom::randNumber()
+_size MyRandom::randNumber()
 {
 	if (!_isSetRange)
 	{
 		throw range_error("随机数范围非法");
 	}
 
-	long long num;
+	_size num;
 
 	// 如果上次生成的随机数还没有用完
 	if (_nums.size() != 0)
@@ -62,7 +62,7 @@ long long MyRandom::randNumber()
 	}
 }
 
-void MyRandom::setRange(long long leftRange, long long rightRange)
+void MyRandom::setRange(_size leftRange, _size rightRange)
 {
 	if (leftRange > rightRange)
 	{
@@ -77,7 +77,7 @@ void MyRandom::setRange(long long leftRange, long long rightRange)
 		_nums.clear();
 
 		// 像数组中顺序添加范围内所有的数值，之后在用洗牌算法打乱数组
-		for (long long int i = leftRange; i <= rightRange; i++)
+		for (_size i = leftRange; i <= rightRange; i++)
 		{
 			_nums.push_back(i);
 		}

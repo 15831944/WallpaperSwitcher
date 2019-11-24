@@ -68,7 +68,7 @@
 #define GUIDE L"请将壁纸所在文件夹拖拽到此处（目录下不能有任何非壁纸文件）"
 #define ABOUT L"Wallpaper Switcher是一款开源的壁纸切换工具\n项目主页：https://github.com/ADD-SP/WallpaperSwicher "
 #define EXPLAIN L"老板键：立即切换到默认壁纸并不再切换到其它壁纸，直到退出老板模式。\n丢弃壁纸：不再将当前壁纸作为桌面，但是不会删除磁盘上的文件。"
-#define HOTKEY L"ALT + ~：立即切换壁纸\nALT + 1：显示/隐藏主界面\nALT + 2：丢弃当前壁纸\nALT + Q：开启/关闭老板模式\nALT + F1：关闭软件"
+#define HOTKEY L"ALT + ~：立即切换壁纸\nALT + 1：显示/隐藏主界面\nALT + Q：丢弃当前壁纸\nALT + 2：开启/关闭老板模式\nALT + F1：关闭软件"
 #define ABOUT_SWITCH L"本软件以“十分随机”的方式进行切换，如果不考虑文件夹内的所有壁纸都已经轮换过一遍的情况，本软件不会再次使用之前已经用过的壁纸。即在一个壁纸切换周期内，所有的壁纸都会出现且仅出现一次。"
 
 using std::unordered_set;
