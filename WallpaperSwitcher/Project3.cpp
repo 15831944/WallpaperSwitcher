@@ -11,6 +11,10 @@
 #include "MyRandom.h"
 #include <winreg.h>
 
+
+// 解决在管理员权限下拖拽功能失效的某的宏
+#define WM_COPYGLOBALDATA 0x0049
+
 #define MAX_LOADSTRING (100)
 // 最大文件名长度
 #define MAX_FILENAME (260)
@@ -327,6 +331,11 @@ ATOM RegisterLabelClass(HINSTANCE hInstance)
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // 将实例句柄存储在全局变量中
+
+   // 下列三行函数调用用于解决管理员权限下拖拽功能失效的情况
+   ChangeWindowMessageFilter(WM_DROPFILES, MSGFLT_ADD);
+   ChangeWindowMessageFilter(WM_COPYDATA, MSGFLT_ADD);
+   ChangeWindowMessageFilter(WM_COPYGLOBALDATA, MSGFLT_ADD);/* WM_COPYGLOBALDATA */
 
    // 创建具有拖拽功能的主窗口
    g_hWnd = CreateWindowExW(WS_EX_ACCEPTFILES, szWindowClass, szTitle, WS_MINIMIZEBOX | WS_VISIBLE | WS_SYSMENU,
